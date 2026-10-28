@@ -49,7 +49,7 @@ def render_pdf(text):
     story=[]
     def p(value,kind='body',bullet=False):
         value=value.replace('\ufffd','-')
-        story.append(Paragraph(escape(value),styles[kind],bulletText='•' if bullet else None))
+        story.append(Paragraph(escape(value),styles[kind],bulletText='-' if bullet else None))
     if header:
         first=header[0]
         # Preserve the source subtitle while distinguishing it visually from a name.
@@ -75,8 +75,8 @@ def render_pdf(text):
             p(' · '.join(lines));continue
         grouped=[]
         for line in lines:
-            is_bullet=bool(re.match(r'^[•\ufffd*]\s|^-\s',line))
-            clean=re.sub(r'^[•\ufffd*\-]\s+','',line) if is_bullet else line
+            is_bullet=bool(re.match(r'^[•\ufffd\x7f\u25a0*]\s|^-\s',line))
+            clean=re.sub(r'^[•\ufffd\x7f\u25a0*\-]\s+','',line) if is_bullet else line
             if not is_bullet and grouped and grouped[-1][0]=='bullet' and not re.search(r'[.!?:]$',grouped[-1][1]):
                 grouped[-1]=('bullet',grouped[-1][1]+' '+clean)
             else: grouped.append(('bullet' if is_bullet else 'plain',clean))

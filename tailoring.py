@@ -17,7 +17,7 @@ def tailor(source, description):
     if start is None: return source,report
     blocks=[]; block=[]; had_bullet=False; complete=False
     for line in lines[start:end]:
-        bullet=bool(re.match(r'^\s*[•\ufffd*\-]\s+',line))
+        bullet=bool(re.match(r'^\s*[•\ufffd\x7f\u25a0*\-]\s+',line))
         if line.strip() and not bullet and had_bullet and complete:
             blocks.append(block);block=[];had_bullet=False
         block.append(line)
@@ -26,7 +26,7 @@ def tailor(source, description):
             complete=bool(re.search(r'[.!?]\s*$',line))
     if block:blocks.append(block)
     # Ambiguous layouts stay unchanged. A block needs a heading and source bullets.
-    if not blocks or any(not any(re.match(r'^\s*[•\ufffd*\-]\s+',x) for x in b) for b in blocks):
+    if not blocks or any(not any(re.match(r'^\s*[•\ufffd\x7f\u25a0*\-]\s+',x) for x in b) for b in blocks):
         return source,report
     ranked=sorted(blocks,key=lambda b:-len(keywords(' '.join(b)) & target))
     report['project_order']=[next(x.strip() for x in b if x.strip()) for b in ranked]
