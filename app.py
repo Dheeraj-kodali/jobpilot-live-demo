@@ -83,6 +83,12 @@ async def tailor_resume(request: Request):
         if not 20<=len(source)<=30000: raise ValueError()
     except Exception:
         raise HTTPException(400,'Use a text-based PDF (up to 10 pages) or UTF-8 TXT under 2 MB, and a job description of 20–20,000 characters.')
+    if payload.get('mode')=='ai':
+        if payload.get('consent') is not True: raise HTTPException(400,'Confirm sharing the bullet text and job description with Groq.')
+        from ai_rewrite import rewrite, RewriteError
+        from starlette.concurrency import run_in_threadpool
+        try: source=await run_in_threadpool(rewrite,source,description,payload.get('key',''))
+        except RewriteError as exc: raise HTTPException(400,str(exc))
     result,report=tailor(source,description)
     return Response(render_pdf(result),media_type='application/pdf',headers={
         'Content-Disposition':'attachment; filename="jobpilot-tailored-resume.pdf"',
