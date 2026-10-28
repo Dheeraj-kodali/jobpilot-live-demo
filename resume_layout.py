@@ -65,7 +65,9 @@ def render_pdf(text):
     for section in sections:
         title=section['title']; lines=section['lines']
         p(title.upper(),'section')
-        story.append(HRFlowable(width='100%',thickness=.5,color=colors.HexColor('#CAD6DC'),spaceAfter=5,keepWithNext=True))
+        rule=HRFlowable(width='100%',thickness=.5,color=colors.HexColor('#CAD6DC'),spaceAfter=5)
+        rule.keepWithNext=True
+        story.append(rule)
         if title=='Profile':
             p(' '.join(lines));continue
         if title=='Technical Skills' and len(lines)%2==0 and all(len(x)<60 for x in lines[::2]):
