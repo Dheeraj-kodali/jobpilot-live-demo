@@ -8,6 +8,8 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import FileResponse, Response
 
 app = FastAPI(docs_url=None, redoc_url=None)
+from accounts import router as account_router
+app.include_router(account_router)
 lock = threading.Lock()
 stop = threading.Event()
 cache = {'jobs': [], 'last_success': None, 'error': None, 'new_count': 0}
@@ -87,7 +89,12 @@ async def tailor_resume(request: Request):
         if payload.get('consent') is not True: raise HTTPException(400,'Confirm sharing the bullet text and job description with Groq.')
         from ai_rewrite import rewrite, RewriteError
         from starlette.concurrency import run_in_threadpool
-        try: source=await run_in_threadpool(rewrite,source,description,payload.get('key',''))
+        try:
+            key=payload.get('key','')
+            if payload.get('use_saved_key') is True:
+                from accounts import saved_key
+                key=await run_in_threadpool(saved_key,request)
+            source=await run_in_threadpool(rewrite,source,description,key)
         except RewriteError as exc: raise HTTPException(400,str(exc))
     result,report=tailor(source,description)
     return Response(render_pdf(result),media_type='application/pdf',headers={
