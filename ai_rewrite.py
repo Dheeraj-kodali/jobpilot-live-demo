@@ -2,13 +2,28 @@
 import json
 import re
 import requests
+from resume_layout import SECTIONS
 
 class RewriteError(ValueError): pass
 
 def rewrite(source, description, key):
     if not isinstance(key,str) or not 20 <= len(key) <= 300:
         raise RewriteError('Enter a valid Groq API key for this request.')
-    lines=source.splitlines()
+    # Join PDF-wrapped bullet continuations before the model sees them, so the
+    # model cannot complete a fragment while its original continuation survives.
+    lines=[]
+    active=False
+    marker=r'^\s*[•\ufffd\x7f\u25a0*\-]\s+'
+    for line in source.splitlines():
+        stripped=line.strip()
+        bullet=bool(re.match(marker,line))
+        heading=SECTIONS.get(stripped.strip('# :').lower())
+        if active and stripped and not bullet and not heading and not re.search(r'[.!?:]$',lines[-1].rstrip()):
+            lines[-1]+=' '+stripped
+        else:
+            lines.append(line)
+            active=bullet
+        if heading or not stripped: active=False
     bullets={str(i):line for i,line in enumerate(lines) if re.match(r'^\s*[•\ufffd\x7f\u25a0*\-]\s+',line)}
     if not bullets:
         raise RewriteError('No clear bullet points found. Use source-based mode for this resume.')

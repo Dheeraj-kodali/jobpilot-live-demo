@@ -49,6 +49,7 @@ def render_pdf(text):
     story=[]
     def p(value,kind='body',bullet=False):
         value=value.replace('\ufffd','-')
+        value=re.sub('[\u2010-\u2015\u2212]','-',value).replace('\u202f',' ').replace('\u00a0',' ')
         story.append(Paragraph(escape(value),styles[kind],bulletText='-' if bullet else None))
     if header:
         first=header[0]
@@ -64,7 +65,7 @@ def render_pdf(text):
     for section in sections:
         title=section['title']; lines=section['lines']
         p(title.upper(),'section')
-        story.append(HRFlowable(width='100%',thickness=.5,color=colors.HexColor('#CAD6DC'),spaceAfter=5))
+        story.append(HRFlowable(width='100%',thickness=.5,color=colors.HexColor('#CAD6DC'),spaceAfter=5,keepWithNext=True))
         if title=='Profile':
             p(' '.join(lines));continue
         if title=='Technical Skills' and len(lines)%2==0 and all(len(x)<60 for x in lines[::2]):
