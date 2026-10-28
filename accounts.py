@@ -29,7 +29,19 @@ def remote(method,path,token=None,**kwargs):
     headers.update(kwargs.pop('headers',{}))
     try:
         r=requests.request(method,url+path,headers=headers,timeout=15,**kwargs)
-        if not r.ok: raise HTTPException(400,'Account request failed. Check your details, verification email, or retry later.')
+        if not r.ok:
+            try: code=r.json().get('code','')
+            except (ValueError, AttributeError): code=''
+            messages={
+                'email_not_confirmed':'Please verify your email first. Open the confirmation email (also check Spam), click its link, then sign in.',
+                'invalid_credentials':'Email or password is incorrect. Use the password you chose when creating your JobPilot account.',
+                'over_email_send_rate_limit':'Too many verification emails requested. Wait a few minutes before trying again.',
+                'over_request_rate_limit':'Too many attempts. Please wait a few minutes and try again.',
+                'user_already_exists':'An account already exists. Verify your email, then choose Sign in.',
+                'weak_password':'Choose a stronger password with at least eight characters.',
+                'email_address_invalid':'Enter a valid email address.',
+            }
+            raise HTTPException(400,messages.get(code,'Account request failed. Please check your details or try again later.'))
         return r.json() if r.content else None
     except requests.RequestException: raise HTTPException(503,'Account service is temporarily unavailable.') from None
 
