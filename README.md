@@ -1,15 +1,36 @@
 # JobPilot public demo
 
-Live job discovery plus request-local resume PDF generation. No Gmail tokens or email sending. Uploads are read into bounded memory; no resume is written to disk or shared application state.
+FastAPI job discovery and resume tailoring, with Supabase accounts and an optional personal workspace. This branch implements Phase 1; its workspace migration was applied to Supabase on 29 October 2026; application deployment remains pending.
 
-Render free web service:
-- Build: `pip install -r requirements.txt`
-- Start: `uvicorn app:app --host 0.0.0.0 --port $PORT --workers 1`
-- Health check: `/health`
-- Instance: **Free** only. No database, disk, or paid add-ons.
+## Existing public features
 
-Checks Anthropic's public Greenhouse board every 600 seconds while running. Free hosting sleeps when idle. First-seen counts reset on restart; first-seen is not publication time. Resume tailoring ranks original project blocks; it does not perform AI rewriting. Accepts text PDFs up to 10 pages or UTF-8 TXT, up to 2 MB. This is not the full personal automation app.
+- Anthropic Greenhouse job feed, title/location filters, refresh every 600 seconds while the process runs.
+- First-seen is not publication time. Cache resets on restart; Render Free may sleep. No continuous polling guarantee.
+- Request-local PDF/TXT resume generation. PDF up to ten pages, decoded input under 2 MB, JSON request under 3 MB.
+- Source-preserving project ranking or optional Groq bullet rewriting. Consent is required for sharing bullets and job descriptions; keys may be supplied per request or saved encrypted per account.
+- Rewrite checks reduce risk but do not establish semantic accuracy. Review output.
+- No Gmail delivery, universal scraping, or automatic job application in this deployment.
 
-## Optional AI rewriting
+## Phase 1 branch
 
-Groq mode rewrites recognized bullets only. Explicit consent and a per-request key are required; keys and resume content are not stored by the app. Only bullet text and the job description go to Groq, which may still contain personal information. Fixed fields remain unchanged and numerical changes are rejected. These checks do not prove semantic accuracy; users must review output. No automatic provider retries or paid subscriptions are enabled. Free-tier quota may be exhausted. Mocked provider checks passed; a live request with a user key is still required.
+- Numbered migration `migrations/001_user_workspace.sql` adds profiles, resumes, claims, evidence_links, job_sources, user_jobs, applications and application_events. Existing provider_keys is unchanged.
+- Every table has owner-only RLS; composite foreign keys prevent cross-owner parent references.
+- GET/PUT /api/profile: role, location, skills, experience, minimum salary/currency, workplace, job type and posting age.
+- POST /api/resumes: same base64 JSON file/kind format as tailoring, with optional boolean store_text. Only literal true persists extracted text; otherwise it returns extracted text without storing. Requires login and same-origin request. Original uploaded files are not saved.
+- GET /api/applications returns at most 100 current-user records. Application creation and pagination UI are later work.
+- These workspace endpoints do not yet have profile/resume management screens.
+- POST /api/account/refresh rotates encrypted HttpOnly refresh and access cookies. Browser renews on load, every 45 minutes and on eligible 401 responses. Refresh cookie lifetime is 30 days, subject to upstream revocation/session settings. Existing users need one new login to receive it.
+- Logout clears both cookies; upstream token revocation is not implemented. Cross-tab refresh coordination remains a hardening item.
+
+## Run and test
+
+Build: pip install -r requirements.txt
+Start: uvicorn app:app --host 0.0.0.0 --port $PORT --workers 1
+Tests: python -B -m unittest discover -s tests -v
+Health: /health (process liveness, not provider readiness)
+
+No passwords or keys belong in Git. See ACCOUNT_SETUP.md for migration and environment setup.
+
+## Verification limits
+
+Local mocked tests cover owner-scoped requests and session behavior; they do not prove database RLS. Earlier live tests verified saved-key Groq generation and an Oracle-targeted resume. The Phase 1 schema and owner policies were verified on Supabase. Live two-account isolation, session expiry/rotation, and new workspace routes still need production verification. No real emails have been sent.

@@ -10,6 +10,8 @@ from fastapi.responses import FileResponse, Response
 app = FastAPI(docs_url=None, redoc_url=None)
 from accounts import router as account_router
 app.include_router(account_router)
+from workspace import router as workspace_router
+app.include_router(workspace_router)
 lock = threading.Lock()
 stop = threading.Event()
 cache = {'jobs': [], 'last_success': None, 'error': None, 'new_count': 0}
@@ -92,7 +94,8 @@ async def tailor_resume(request: Request):
         try:
             key=payload.get('key','')
             if payload.get('use_saved_key') is True:
-                from accounts import saved_key
+                from accounts import saved_key, same_origin
+                same_origin(request)
                 key=await run_in_threadpool(saved_key,request)
             source=await run_in_threadpool(rewrite,source,description,key)
         except RewriteError as exc: raise HTTPException(400,str(exc))
@@ -100,3 +103,6 @@ async def tailor_resume(request: Request):
     return Response(render_pdf(result),media_type='application/pdf',headers={
         'Content-Disposition':'attachment; filename="jobpilot-tailored-resume.pdf"',
         'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'})
+
+@app.get('/session.js')
+def session_script(): return FileResponse(Path(__file__).with_name('session.js'),media_type='text/javascript')

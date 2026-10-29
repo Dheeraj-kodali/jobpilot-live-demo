@@ -11,6 +11,8 @@ from pydantic import BaseModel, Field
 
 router=APIRouter()
 COOKIE='jobpilot_session'
+REFRESH_COOKIE='jobpilot_refresh'
+REFRESH_TTL=30*24*3600
 
 def config():
     values=[os.getenv(k,'') for k in ('SUPABASE_URL','SUPABASE_ANON_KEY','KEY_ENCRYPTION_KEY','APP_ORIGIN')]
@@ -98,8 +100,7 @@ def login(value:Credentials,request:Request):
     result=remote('POST','/auth/v1/token?grant_type=password',json=value.model_dump())
     if not result or not result.get('access_token'): raise HTTPException(401,'Sign-in failed.')
     response=JSONResponse({'message':'Signed in.'},headers={'Cache-Control':'no-store'})
-    response.set_cookie(COOKIE,config()[2].encrypt(result['access_token'].encode()).decode(),
-                        httponly=True,secure=True,samesite='strict',max_age=3600)
+    set_session(response,result)
     return response
 
 @router.post('/api/account/logout')
@@ -107,6 +108,7 @@ def logout(request:Request):
     same_origin(request)
     response=JSONResponse({'message':'Signed out.'})
     response.delete_cookie(COOKIE,secure=True,httponly=True,samesite='strict')
+    response.delete_cookie(REFRESH_COOKIE,path='/api/account',secure=True,httponly=True,samesite='strict')
     return response
 
 @router.post('/api/account/key')
@@ -122,3 +124,23 @@ def remove_key(request:Request):
     same_origin(request);token,uid=identity(request)
     remote('DELETE','/rest/v1/provider_keys',token,params={'user_id':'eq.'+uid})
     return {'message':'Saved key removed.'}
+
+
+def set_session(response,result):
+    if not result or not result.get('access_token') or not result.get('refresh_token'):
+        raise HTTPException(401,'Please sign in again.')
+    cipher=config()[2]
+    response.set_cookie(COOKIE,cipher.encrypt(result['access_token'].encode()).decode(),httponly=True,secure=True,samesite='strict',max_age=3600)
+    response.set_cookie(REFRESH_COOKIE,cipher.encrypt(result['refresh_token'].encode()).decode(),httponly=True,secure=True,samesite='strict',max_age=REFRESH_TTL,path='/api/account')
+
+@router.post('/api/account/refresh')
+def refresh_session(request:Request):
+    same_origin(request)
+    try:
+        token=config()[2].decrypt(request.cookies.get(REFRESH_COOKIE,'').encode(),ttl=REFRESH_TTL).decode()
+    except (InvalidToken,ValueError):
+        raise HTTPException(401,'Please sign in again.') from None
+    result=remote('POST','/auth/v1/token?grant_type=refresh_token',json={'refresh_token':token})
+    response=JSONResponse({'message':'Session renewed.'},headers={'Cache-Control':'no-store'})
+    set_session(response,result)
+    return response
