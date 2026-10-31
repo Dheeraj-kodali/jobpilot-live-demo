@@ -12,6 +12,8 @@ from accounts import router as account_router
 app.include_router(account_router)
 from workspace import router as workspace_router
 app.include_router(workspace_router)
+from alert_flow import router as alert_router
+app.include_router(alert_router)
 lock = threading.Lock()
 stop = threading.Event()
 cache = {'jobs': [], 'last_success': None, 'error': None, 'new_count': 0}
